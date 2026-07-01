@@ -336,7 +336,7 @@ async function startRecording(){
 
   chunks=[];
   const mime=pickMime();
-  mediaRecorder = new MediaRecorder(stream, mime?{mimeType:mime}:undefined);
+  mediaRecorder = new MediaRecorder(stream, Object.assign(mime?{mimeType:mime}:{}, {audioBitsPerSecond:128000}));
   mediaRecorder.ondataavailable = e=>{ if(e.data.size) chunks.push(e.data); };
   mediaRecorder.onstop = finishRecording;
   mediaRecorder.start();
@@ -424,13 +424,14 @@ $('uploadBtn').addEventListener('click', async ()=>{
   }
   statusEl.className='status busy'; statusEl.innerHTML='<span class="spinner"></span>Preparing…';
   try{
-    const wav = await toWav(recordedBlob);
-    statusEl.innerHTML='<span class="spinner"></span>Uploading…';
-    const path = 'spanish-' + Date.now() + '.wav';
+ statusEl.innerHTML='<span class="spinner"></span>Uploading…';
+    const baseType = (recordedBlob.type||'audio/webm').split(';')[0];
+    const ext = baseType.includes('mp4') ? 'm4a' : baseType.includes('ogg') ? 'ogg' : 'webm';
+    const path = 'spanish-' + Date.now() + '.' + ext;
     const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
       method:'POST',
-      headers:{ 'Authorization':`Bearer ${SUPABASE_ANON_KEY}`, 'apikey':SUPABASE_ANON_KEY, 'Content-Type':'audio/wav', 'x-upsert':'true' },
-      body: wav
+      headers:{ 'Authorization':`Bearer ${SUPABASE_ANON_KEY}`, 'apikey':SUPABASE_ANON_KEY, 'Content-Type':baseType, 'x-upsert':'true' },
+      body: recordedBlob
     });
     if(!res.ok){ const txt = await res.text(); throw new Error(res.status + ' ' + txt.slice(0,120)); }
     const longUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
